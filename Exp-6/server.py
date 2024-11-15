@@ -1,67 +1,44 @@
-import socket
 import threading
+import socket
 
-# Server settings
-TCP_IP = '127.0.0.1'
-TCP_PORT = 5000
-UDP_PORT = 5001
-BUFFER_SIZE = 1024
+# UDP server should use SOCK_DGRAM (not SOCK_STREAM)
+def udp_server():
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Using SOCK_DGRAM for UDP
+    udp_socket.bind(('localhost', 12346))  # Using port 12346 for UDP
+    print(f"UDP Server Started at Port 12346")
 
-# Lists to manage connected TCP clients
-tcp_clients = []
+    while True:
+        message, client_address = udp_socket.recvfrom(1024)
+        print(f"Received Message from {client_address} Message: {message.decode('utf-8')}")
 
-# TCP server setup
-tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-tcp_server.bind((TCP_IP, TCP_PORT))
-tcp_server.listen()
+# TCP server should use SOCK_STREAM
+def tcp_server():
+    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_socket.bind(('localhost', 12345))  # Using port 12345 for TCP
+    tcp_socket.listen(5)
+    print(f"TCP Server Started at Port 12345")
+    client_socket, client_address = tcp_socket.accept()
+    print(f"Client Joined From {client_address}")
+    handle_tcp_client(client_socket)
 
-# UDP server setup
-udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp_server.bind((TCP_IP, UDP_PORT))
-
-# Broadcast a message to all TCP clients
-def broadcast_tcp(message, exclude_client=None):
-    for client in tcp_clients:
-        if client != exclude_client:
-            try:
-                client.send(message)
-            except:
-                tcp_clients.remove(client)
-
-# Handle individual TCP client messages
 def handle_tcp_client(client_socket):
     while True:
-        try:
-            message = client_socket.recv(BUFFER_SIZE)
-            if message:
-                broadcast_tcp(message, exclude_client=client_socket)
-            else:
-                break
-        except:
+        message = client_socket.recv(1024).decode('utf-8')
+        if not message:
             break
+        print(f'Received Message: {message}')
+        client_socket.send("Message Received".encode('utf-8'))
     client_socket.close()
-    tcp_clients.remove(client_socket)
 
-# Listen for TCP connections
-def tcp_connection_listener():
-    print(f"TCP server listening on {TCP_IP}:{TCP_PORT}")
-    while True:
-        client_socket, _ = tcp_server.accept()
-        tcp_clients.append(client_socket)
-        thread = threading.Thread(target=handle_tcp_client, args=(client_socket,))
-        thread.start()
+# Function to start the correct server based on input
+def start_server(name):
+    if name.lower() == 'udp':
+        threading.Thread(target=udp_server).start()
+    elif name.lower() == 'tcp':
+        threading.Thread(target=tcp_server).start()
+    else:
+        print("Invalid protocol choice. Please enter either 'TCP' or 'UDP'.")
 
-# Listen for UDP messages and broadcast them
-def udp_message_listener():
-    print(f"UDP server listening on {TCP_IP}:{UDP_PORT}")
-    while True:
-        message, addr = udp_server.recvfrom(BUFFER_SIZE)
-        for client in tcp_clients:
-            client.send(b"UDP:" + message)  # Prefix for clarity on receiving side
-
-# Start TCP and UDP listeners
-tcp_listener_thread = threading.Thread(target=tcp_connection_listener)
-udp_listener_thread = threading.Thread(target=udp_message_listener)
-
-tcp_listener_thread.start()
-udp_listener_thread.start()
+if __name__ == '__main__':
+    name = input("Enter TCP/UDP Connection needed: ")
+    start_server(name)
