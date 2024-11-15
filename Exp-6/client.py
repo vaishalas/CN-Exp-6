@@ -1,45 +1,36 @@
-import socket
 import threading
+import socket
 
-# Server settings
-TCP_IP = '127.0.0.1'
-TCP_PORT = 5000
-UDP_PORT = 5001
-BUFFER_SIZE = 1024
-
-# Setup TCP client
-tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-tcp_client.connect((TCP_IP, TCP_PORT))
-
-# Setup UDP client
-udp_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-# Receive messages from TCP server
-def receive_tcp_messages():
+def tcp_client():
+    tcp_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    tcp_socket.connect(('localhost',12345))
     while True:
-        try:
-            message = tcp_client.recv(BUFFER_SIZE)
-            if message:
-                print(message.decode())
-        except:
+        message = input("Enter The message or Type Bye: ")
+        if message.lower() == 'bye':
             break
+        else:
+            tcp_socket.send(message.encode('utf-8'))
+            responce = tcp_socket.recv(1024).decode('utf-8')
+            print(f'Responce From Server {responce}')
 
-# Send message over TCP
-def send_tcp_message(message):
-    tcp_client.send(message.encode())
+    tcp_socket.close()
 
-# Send message over UDP
-def send_udp_message(message):
-    udp_client.sendto(message.encode(), (TCP_IP, UDP_PORT))
+def udp_client():
+    udp_socket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    udp_socket.connect(('localhost',12346))
 
-# Start a thread to listen for TCP messages
-tcp_thread = threading.Thread(target=receive_tcp_messages)
-tcp_thread.start()
-
-# Example usage
-while True:
-    msg = input("Enter message (type 'udp:' prefix for UDP message): ")
-    if msg.startswith('udp:'):
-        send_udp_message(msg[4:])
+    while True:
+        message = input("Enter The message or Type Bye: ")
+        if message.lower() == 'bye':
+            break
+        else:
+            udp_socket.send(message.encode('utf-8'))
+def start_client(name):
+    if name == 'udp':
+        threading.Thread(target=udp_client).start()
     else:
-        send_tcp_message(msg)
+        threading.Thread(target=tcp_client).start()
+
+if __name__ == '__main__':
+    name = input("Enter The connection name(TCP/UDP): ")
+    start_client(name.lower())
